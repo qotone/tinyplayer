@@ -1,0 +1,129 @@
+/**
+  ******************************************************************************
+  * @file    main.c
+  * @author  Ac6
+  * @version V1.0
+  * @date    01-December-2013
+  * @brief   Default main function.
+  ******************************************************************************
+*/
+
+
+#include "stm32f10x.h"
+#include <stdio.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+
+
+#include "sdio_sdcard.h"
+#include "ff.h"
+#include "Q_fatfs.h"
+
+#include "mp3play.h"
+
+#include "bsp.h"
+
+
+#define LED0_ON()    GPIO_ResetBits(GPIOC,GPIO_Pin_2)
+#define LED0_OFF()    GPIO_SetBits(GPIOC,GPIO_Pin_2)
+#define LED0_BLINK()    GPIOC->ODR ^= GPIO_Pin_2
+
+char wtext[]="hello world\r\n";
+uint32_t wbytes;
+FATFS FatFs;
+FIL fil;
+
+static void prvSetupHardware(void);
+
+static void vLEDTask(void *pvParameters);
+static void vCOMMTask(void *pvParameters);
+
+void Led_Init(void);
+			
+
+int main(void)
+{
+	prvSetupHardware();
+
+	xTaskCreate(vLEDTask,"LED",1024,NULL,2,NULL);
+	xTaskCreate(vCOMMTask,"COMM",1024,NULL,2,NULL);
+
+	vTaskStartScheduler();
+	for(;;);
+	return 0;
+}
+
+void vLEDTask(void *pvParameters)
+{
+
+	Led_Init();
+	LED0_ON();
+
+	for(;;)
+	{
+		LED0_BLINK();
+		vTaskDelay(500/portTICK_RATE_MS);
+	}
+}
+
+void Led_Init(void)
+{
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC,ENABLE);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+}
+
+static void prvSetupHardware( void )
+{
+    //SystemInit();
+  bsp_Init();
+
+  //SDIO_Configuration();
+ // VS1003_SPI_Init();
+
+}
+
+void vCOMMTask(void *pvParameters)
+{
+//	Q_FATFS_Size_t size;
+//	FRESULT st=0;
+	extern void  retarget_init(void);
+	retarget_init();
+	SDIO_Configuration();
+	printf("============ This is a Demo ==========\r\n");
+	 /*if((f_mount(&FatFs, "SD:",1)) == FR_OK)
+	 {
+	   printf("Mount OK! \n");
+	   st = f_open(&fil, "SD:my_file_sd.txt", FA_CREATE_ALWAYS | FA_WRITE);
+	   printf("Open file OK.%d.\n",st);
+	   st= f_write(&fil,wtext,sizeof(wtext),(void *)&wbytes);
+	   printf("write string to file OK!\n");
+	   Q_FATFS_GetDriveSize("SD:",&size);
+	   printf("The size of this SDCARD is:%ld, and the free size is: %ld.\n",size.TotalSize,size.FreeSize);
+	   f_close(&fil);
+	   f_mount(0,"SD:",1);
+	 }
+	 else
+	   printf("Wrong.%d\n",st);*/
+
+	  VS1003_SPI_Init();
+	  printf("lll\n");
+	  MP3_Start();
+	  MP3_Play();
+	 printf("======== End =========\n");
+
+
+
+	for(;;)
+	{
+		printf("test\r\n");
+		vTaskDelay(1000/portTICK_RATE_MS);
+	}
+}

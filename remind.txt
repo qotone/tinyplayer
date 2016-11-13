@@ -1,0 +1,120 @@
+Passing a pointer to a queue?
+Posted by tord lindner on February 22, 2009
+HI, This might be a c-question, but I'm stuck and would appreciate some help :)
+
+I've a local buffer in a task and I want to pass on a pointer to the first byte in that buffer to another task.
+
+I've created a queue with
+parserQueue = xQueueCreate(6, sizeof(unsigned char *));
+
+In task1:
+unsigned char nmea[40];
+
+In task2:
+unsigned char * nmea;
+
+How shall the code look like in task1 and task2 to send a pointer from task1 to task2?
+
+cheers, tord
+RE: Passing a pointer to a queue?
+Posted by Richard on February 22, 2009
+> HI, This might be a c-question, but I'm stuck and would 
+> appreciate some help :)
+> 
+> I've a local buffer in a task and I want to pass on a pointer 
+> to the first byte in that buffer to another task.
+
+
+That¡¯s fine, but make sure the buffer you are passing a pointer to is always valid.  For example, don't declare a buffer on a temporary stack within task A then pass a pointer to the buffer to task B.  When the stack in task A disapears the pointer will point to random memory.  It will be ok if the stack will always be there - for example the buffer is declared at the top function level within the task.
+
+> 
+> I've created a queue with
+> parserQueue = xQueueCreate(6, sizeof(unsigned char *));
+
+
+So the queue can contain a maximum of 6 pointers to characters....
+
+> 
+> In task1:
+> unsigned char nmea[40];
+
+
+... Task1 has the buffer ... (note what I said above about ensuring the buffer is always valid, also take care allocating large buffers in task stacks as you will have to allocate more RAM to the task stack when the task is created).
+
+
+
+> 
+> In task2:
+> unsigned char * nmea;
+> 
+> How shall the code look like in task1 and task2 to send a 
+> pointer from task1 to task2?
+
+
+
+
+In task 1:
+
+/* Your array. */
+unsigned char nmea[40];
+
+/* The address of the first byte in your array is saved in pc. */
+char *pc = nmea;
+
+/* Send the address of the first byte in the array. */
+xQueueSend( xQueue, &pc, 0 );
+
+
+
+
+In task 2:
+
+char *nmea;
+
+/* Copy the address received from the queue into the nmea pointer. */
+xQueueReceive( xQueue, &nmea, portMAX_DELAY );
+
+Regards.
+
+RE: Passing a pointer to a queue?
+Posted by tord lindner on February 22, 2009
+brilliant! I thought there was a way getting nmea to be passed, with char *pc in between  it works! Thanks so much!
+
+Since the buffer is created first in a task1 is it not always valid? Even if another task is running the stack for the task is always in the same place, right?
+
+cheers, tord
+RE: Passing a pointer to a queue?
+Posted by Richard on February 22, 2009
+This is ok:
+
+void vATask( void *pvParameters )
+{
+/* Buffer is declared at the 'root' function of the task.  The stack
+cannot be unwound past here so the RAM is always valid. */
+char cBuffer[ 10 ];
+
+}
+
+
+
+This is not ok:
+
+void vAFunction( void )
+{
+/* This buffer is only valid inside vAFunction().  Once the function
+returns the buffer is gone. */
+char cBuffer[ 10 ];
+
+
+}
+
+void vATask( void *pvParameters )
+{
+    vAFunction();
+}
+
+
+Regards.
+RE: Passing a pointer to a queue?
+Posted by tord lindner on February 22, 2009
+Ok, I with you, thanks so much :)
